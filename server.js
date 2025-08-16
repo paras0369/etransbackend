@@ -11,7 +11,13 @@ app.use(cors());
 app.use(express.json());
 
 // Connect to MongoDB using mongoose
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI, {
+  serverSelectionTimeoutMS: 30000,
+  socketTimeoutMS: 45000,
+  bufferMaxEntries: 0,
+  maxPoolSize: 10,
+  minPoolSize: 5
+})
 .then(() => {
   console.log("Connected to MongoDB successfully!");
 })
