@@ -22,10 +22,17 @@ async function connectToDatabase() {
   }
 
   try {
+    // Disconnect any existing connection before reconnecting
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+    }
+
     const connection = await mongoose.connect(process.env.MONGODB_URI, {
       maxPoolSize: 5,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
+      bufferCommands: false, // Disable mongoose buffering
+      bufferMaxEntries: 0 // Disable mongoose buffering
     });
     
     cachedConnection = connection;
@@ -33,26 +40,42 @@ async function connectToDatabase() {
     return connection;
   } catch (error) {
     console.error("MongoDB connection error:", error);
+    cachedConnection = null; // Clear cache on error
     throw error;
   }
 }
 
-// Simplified middleware - just check connection, don't force reconnect
-function ensureDbConnected(req, res, next) {
-  if (mongoose.connection.readyState === 1) {
-    return next();
-  }
-  
-  // If not connected, attempt connection
-  connectToDatabase()
-    .then(() => next())
-    .catch((error) => {
-      console.error("Database connection failed:", error);
-      res.status(503).json({ 
-        success: false, 
-        message: 'Database service temporarily unavailable' 
-      });
+// Enhanced middleware for better serverless handling
+async function ensureDbConnected(req, res, next) {
+  try {
+    // Check current connection state
+    if (mongoose.connection.readyState === 1) {
+      return next();
+    }
+    
+    // If disconnected or connecting, wait for connection
+    if (mongoose.connection.readyState === 0 || mongoose.connection.readyState === 2) {
+      console.log("Establishing database connection...");
+      await connectToDatabase();
+      return next();
+    }
+    
+    // If disconnecting, wait a moment and retry
+    if (mongoose.connection.readyState === 3) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return ensureDbConnected(req, res, next);
+    }
+    
+    // Fallback: attempt connection
+    await connectToDatabase();
+    next();
+  } catch (error) {
+    console.error("Database connection failed:", error);
+    res.status(503).json({ 
+      success: false, 
+      message: 'Database service temporarily unavailable' 
     });
+  }
 }
 
 // Routes setup for serverless

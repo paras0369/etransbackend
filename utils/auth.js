@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/UserMongoose');
 
 const auth = async (req, res, next) => {
@@ -9,6 +10,14 @@ const auth = async (req, res, next) => {
       return res.status(401).json({
         success: false,
         message: 'No token provided, authorization denied'
+      });
+    }
+
+    // Check if database is connected
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database service temporarily unavailable'
       });
     }
 
@@ -26,6 +35,15 @@ const auth = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
+    
+    // Handle specific mongoose connection errors
+    if (error.name === 'MongooseError' && error.message.includes('Cannot call')) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database service temporarily unavailable'
+      });
+    }
+    
     res.status(401).json({
       success: false,
       message: 'Token is not valid'
