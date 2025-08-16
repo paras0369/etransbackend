@@ -12,18 +12,23 @@ app.use(express.json());
 
 // Connect to MongoDB using mongoose
 mongoose.set('bufferCommands', false);
-mongoose.connect(process.env.MONGODB_URI, {
-  serverSelectionTimeoutMS: 30000,
-  socketTimeoutMS: 45000,
-  maxPoolSize: 10,
-  minPoolSize: 5
-})
-.then(() => {
-  console.log("Connected to MongoDB successfully!");
-})
-.catch((error) => {
-  console.error("MongoDB connection error:", error);
-});
+
+async function connectDB() {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 30000,
+      socketTimeoutMS: 45000,
+      maxPoolSize: 10,
+      minPoolSize: 5
+    });
+    console.log("Connected to MongoDB successfully!");
+  } catch (error) {
+    console.error("MongoDB connection error:", error);
+    process.exit(1);
+  }
+}
+
+connectDB();
 
 // Routes
 const authRoutes = require("./routes/auth");
