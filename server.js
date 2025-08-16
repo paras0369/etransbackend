@@ -10,50 +10,49 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Connect to MongoDB using mongoose
+// Configure mongoose for serverless
 mongoose.set('bufferCommands', false);
 
-let isConnected = false;
+// Global database connection for serverless
+let cachedConnection = null;
 
-async function connectDB() {
-  if (isConnected && mongoose.connection.readyState === 1) {
-    return;
+async function connectToDatabase() {
+  if (cachedConnection && mongoose.connection.readyState === 1) {
+    return cachedConnection;
   }
 
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 10000,
+    const connection = await mongoose.connect(process.env.MONGODB_URI, {
+      maxPoolSize: 5,
+      serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-      maxPoolSize: 10,
-      minPoolSize: 1,
-      maxIdleTimeMS: 30000,
-      bufferCommands: false,
-      bufferMaxEntries: 0
     });
-    isConnected = true;
+    
+    cachedConnection = connection;
     console.log("Connected to MongoDB successfully!");
+    return connection;
   } catch (error) {
     console.error("MongoDB connection error:", error);
-    isConnected = false;
     throw error;
   }
 }
 
-// Middleware to ensure database connection with auto-retry
-async function ensureDbConnected(req, res, next) {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      console.log("Database not connected, attempting to reconnect...");
-      await connectDB();
-    }
-    next();
-  } catch (error) {
-    console.error("Failed to connect to database:", error);
-    return res.status(503).json({ 
-      success: false, 
-      message: 'Database connection failed. Please try again.' 
-    });
+// Simplified middleware - just check connection, don't force reconnect
+function ensureDbConnected(req, res, next) {
+  if (mongoose.connection.readyState === 1) {
+    return next();
   }
+  
+  // If not connected, attempt connection
+  connectToDatabase()
+    .then(() => next())
+    .catch((error) => {
+      console.error("Database connection failed:", error);
+      res.status(503).json({ 
+        success: false, 
+        message: 'Database service temporarily unavailable' 
+      });
+    });
 }
 
 // Routes setup for serverless
@@ -67,12 +66,11 @@ app.get("/", (req, res) => {
   res.json({ message: "Etrans Backend Server is running!" });
 });
 
-// For local development
+// Initialize connection for local development
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 5000;
   
-  // Connect to DB first for local development
-  connectDB().then(() => {
+  connectToDatabase().then(() => {
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
@@ -80,6 +78,9 @@ if (process.env.NODE_ENV !== 'production') {
     console.error("Failed to start server:", error);
     process.exit(1);
   });
+} else {
+  // For Vercel: Initialize connection on first request
+  connectToDatabase().catch(console.error);
 }
 
 // Export for Vercel serverless
