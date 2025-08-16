@@ -12,7 +12,6 @@ app.use(express.json());
 
 // Configure mongoose for serverless
 mongoose.set('bufferCommands', false);
-mongoose.set('bufferMaxEntries', 0);
 
 // Global database connection for serverless
 let cachedConnection = null;
