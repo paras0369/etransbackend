@@ -8,6 +8,14 @@ const tableCellSchema = new mongoose.Schema({
   content: {
     type: String,
     required: true
+  },
+  isBold: {
+    type: Boolean,
+    default: false
+  },
+  textColor: {
+    type: String,
+    default: '#000000'
   }
 });
 

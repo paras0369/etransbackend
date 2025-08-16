@@ -58,9 +58,13 @@ function ensureDbConnected(req, res, next) {
 // Routes setup for serverless
 const authRoutes = require("./routes/auth");
 const equipmentDataRoutes = require("./routes/equipmentData");
+const feedersRoutes = require("./routes/feeders");
+const equipmentTypesRoutes = require("./routes/equipmentTypes");
 
 app.use("/api/auth", ensureDbConnected, authRoutes);
 app.use("/api/equipment-data", ensureDbConnected, equipmentDataRoutes);
+app.use("/api/feeders", ensureDbConnected, feedersRoutes);
+app.use("/api/equipment-types", ensureDbConnected, equipmentTypesRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "Etrans Backend Server is running!" });
