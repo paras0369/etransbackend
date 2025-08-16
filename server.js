@@ -28,20 +28,39 @@ async function connectDB() {
   }
 }
 
-connectDB();
+// Middleware to check database connection
+function ensureDbConnected(req, res, next) {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ 
+      success: false, 
+      message: 'Database connection not ready' 
+    });
+  }
+  next();
+}
 
-// Routes
-const authRoutes = require("./routes/auth");
-const equipmentDataRoutes = require("./routes/equipmentData");
+// Initialize routes and start server only after DB connection
+async function startServer() {
+  await connectDB();
+  
+  // Routes
+  const authRoutes = require("./routes/auth");
+  const equipmentDataRoutes = require("./routes/equipmentData");
 
-app.use("/api/auth", authRoutes);
-app.use("/api/equipment-data", equipmentDataRoutes);
+  app.use("/api/auth", ensureDbConnected, authRoutes);
+  app.use("/api/equipment-data", ensureDbConnected, equipmentDataRoutes);
 
-app.get("/", (req, res) => {
-  res.json({ message: "Etrans Backend Server is running!" });
-});
+  app.get("/", (req, res) => {
+    res.json({ message: "Etrans Backend Server is running!" });
+  });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+
+startServer().catch(error => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
 });
