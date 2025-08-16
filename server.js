@@ -12,6 +12,7 @@ app.use(express.json());
 
 // Configure mongoose for serverless
 mongoose.set('bufferCommands', false);
+mongoose.set('bufferMaxEntries', 0);
 
 // Global database connection for serverless
 let cachedConnection = null;
@@ -30,9 +31,7 @@ async function connectToDatabase() {
     const connection = await mongoose.connect(process.env.MONGODB_URI, {
       maxPoolSize: 5,
       serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      bufferCommands: false, // Disable mongoose buffering
-      bufferMaxEntries: 0 // Disable mongoose buffering
+      socketTimeoutMS: 45000
     });
     
     cachedConnection = connection;
